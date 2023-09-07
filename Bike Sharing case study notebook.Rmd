@@ -1,0 +1,897 @@
+---
+title: "Bike Sharing Case study"
+author: "Syed Awais Ali Shah"
+date: "2023-09-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Case Study
+### How does bike-share navigate speedy success?
+
+#### Business Problem:    
+How casual riders and annual members use Cyclistic bikes differently
+
+#### Background
+This case study is part of the Google Data Analytics Certificate: Course 8 Capstone. This case study will illuminate the data analytics skills that I have learned throughout this certification.
+
+
+#### Scenario
+You are a junior data analyst working in the marketing analyst team at Cyclistic, a bike-share company in Chicago. The director of marketing believes the company’s future success depends on maximizing the number of annual memberships. Therefore, your team wants to understand how casual riders and annual members use Cyclistic bikes differently. From these insights, your team will design a new marketing strategy to convert casual **riders** into **annual members**. But first, Cyclistic executives must approve your recommendations, so they must be backed up with compelling data insights and professional data visualizations.
+
+#### About the data
+The data used for this project is obtained from 
+[divyy data](https://divvy-tripdata.s3.amazonaws.com/index.html)
+The divyy data contains quarter wise data sets of bike sharing data from 2013-2022. For this case study, we will work with 2019 and 2020 data. 
+
+### Stucture of the Case Study
+There are 2 parts in this case study. The first part will deal with data from the first quarter of 2019. We will mainly focus on the *gender* and *age* variables here because those variables were later dropped the succeeding data sets.  
+
+  The second part will focus on the last 3 quarters of 2019 and the first quarter of 2020. The larger data will give us more observations to work with and hence produce more concrete results and we can check if there is *seasonality* in the data and *monthly variations*.  
+
+### Methodology
+R was used for the analysis of this case study. The other options were Mysql, Excel and Tableau. I chose R because it can deal with all the aspects of this case study. It has strong. 
+
+- Data cleaning capabilities 
+- Visualization prowess
+- Analytics
+- Publishing
+
+It is an all inclusive tool whereas with other tools mentioned, I would have had to use them in combination.
+
+### The Business problem
+The business problem here is to identify how the customers who are casual users of the bike sharing service differ from the members who hold annual subscription. By studying how they differ, we can put forward reccomendations on how we can convert customers into members.
+
+
+
+## Part 1.
+#### Importing libraries
+```{r echo=T, results='hide',message=FALSE}
+library(tidyverse)
+library(here)
+library(skimr)
+library(janitor)
+library(DescTools)
+library(kableExtra)
+library(scales)
+library(cowplot)
+```
+
+```{r echo=FALSE}
+options(scipen = 999)
+
+```
+
+```{r setting_wd , echo=FALSE,results='hide'}
+getwd()
+setwd("/Users/apple/Documents/R")
+```
+
+
+
+#### Reading the CSV data
+```{r echo=T, results='hide',message=FALSE}
+read_csv("Divvy_Trips_2019_Q1.csv")
+trips <- read_csv("Divvy_Trips_2019_Q1.csv")
+
+```
+
+#### Previewing the data
+```{r results='markup'}
+skim_without_charts(trips)
+```
+
+#### Cleaning the data
+
+##### Removing na values from the column gender and birthyear
+
+Removing the na values for gender and birthyear will disproportionately remove more Customers than Subscribers since customers are one time users and would need to fill that information every time they get a ticket and they tend to more often than not leave out that information.
+But since Part 1 of this case study is more focused on these two variables, it is important to drop the na values.
+```{r}
+trips <- trips %>% 
+  na.omit(gender,birthyear)
+```
+
+
+##### Creating a new variable for duration by subtracting starttime from endtime
+```{r}
+trips <- trips %>% 
+  mutate(duration=round(end_time-start_time))
+
+```
+
+##### Counting number of users
+
+```{r echo=FALSE}
+trips %>% 
+  pull(usertype) %>% 
+  table() %>% 
+  knitr::kable(col.names = c("Usertype","Count")) %>% 
+  kable_styling()
+```
+
+
+We can see that the there are a lot more Subscribers using the bikes as compared to Customers
+```{r echo=FALSE}
+ggplot(trips, aes(x="",fill=usertype)) +
+         geom_bar(width=1) +
+         coord_polar(theta="y", clip = "off", start=0.19) +
+         theme_void() +
+         labs(title="Breakdown of bike users",subtitle = "2019 Q1") +
+annotate("text",x=-0.5,y=0,label=paste0("Total users: ",length(trips$usertype)),fontface="bold",size=5) +
+annotate("text",x=0,y=0,label="5,934 customers", color="coral2", fontface="bold")  +
+annotate("text",x=-1,y=0,label="339,423 subscribers",color="darkturquoise", fontface="bold") +
+  theme(plot.title = element_text(size = rel(2))) 
+```
+
+
+##### Finding the mean duration for customers and subscribers
+```{r echo=FALSE}
+trips %>% 
+  group_by(usertype) %>% 
+  summarize(customer_mean=round(mean(duration),1)) %>% 
+  knitr::kable(col.names = c("Usertype","Mean Duration")) %>% 
+  kable_styling()
+```
+We see that although there are a lot more Subscribers than Customers, the Customers spend much more time on a bike than the Subscribers
+
+###### create a variable age by subtracting the birthyear by 2019
+```{r}
+trips <- trips %>% 
+  mutate(age=2019-birthyear)
+```
+###### check how many riders are male and how many are female
+```{r}
+trips %>% 
+  pull(gender) %>% 
+  table() %>% 
+  kable(col.names = c("gender","Count")) %>% 
+  kable_styling()
+```
+
+```{r echo=FALSE}
+summary_df_gender <- trips %>% 
+  group_by(gender) %>% 
+  summarize(count=n())
+
+```
+
+
+```{r echo=FALSE}
+ggplot(summary_df_gender, aes(x=gender,y=count)) +
+  geom_col(fill="cornflowerblue", width =0.6) +
+  theme_minimal() +
+  labs(title = "Breakdown of bike users by Gender", subtitle = "2019, Q1") +
+  geom_text(aes(label = comma(count)), vjust = -0.5, colour="cornflowerblue",fontface="bold", size=4) +
+  theme(panel.grid = element_blank()) +
+  theme(axis.title.x = element_text(size = 12)) +
+  theme(axis.title.y=element_text(size=12)) +
+  scale_y_continuous(labels = comma)
+```
+
+A disproportionate amount of our bike users are male. This indicates that we need to focus more on marketing the bikes to females.
+
+
+```{r echo=FALSE, warning=FALSE, include=FALSE}
+sum_gen_usr <- trips %>% 
+  group_by(gender,usertype) %>% 
+  summarize(count=n())
+```
+
+
+#### Combining the gender and usertype data into the same graph 
+```{r echo=FALSE}
+ggplot(sum_gen_usr, aes(x=gender,y=count,fill=usertype)) +
+  geom_col(width =0.6) +
+  theme_minimal() +
+  labs(title = "Breakdown of bike rides ", subtitle = "by Gender and usertype ",
+       caption = "2019, Q1") +
+  #geom_text(aes(label = count), vjust = -1, colour="black",fontface="bold", size=4) +
+  theme(panel.grid = element_blank()) +
+  theme(axis.title.x = element_text(size = 12)) +
+  theme(axis.title.y=element_text(size=12)) +
+  annotate("text",x=1,y=33000,label="65,043 Subscribers",size=3.5) +
+  annotate("text",x=2,y=33000,label="274,380 Subscribers",size=3.5) +
+  annotate("text",x=1,y=75000,label="1,875 Customers",size=3.5) +
+  annotate("text",x=2,y=290000,label="4,059 Customers",size=3.5) +
+  scale_y_continuous(labels=comma)
+```
+
+Finding unique bikes, start_stations and end stations
+```{r echo=FALSE}
+#Find out unique start stations
+bike <- trips %>% 
+  pull(bikeid) %>% 
+  unique() %>% 
+  length() 
+  
+  
+station <- trips %>% 
+  pull(from_station_name) %>% 
+  unique() %>% 
+  length()
+
+#Find out unique end stations
+station2 <- trips %>% 
+  pull(to_station_id) %>% 
+  unique() %>% 
+  length()
+
+unique <- data.frame(category=c("unique bikes","unique start stations","unique end stations") ,
+          count=c(bike,station,station2))
+
+unique %>% 
+  knitr::kable() %>% 
+  kable_styling()
+```
+
+
+#### How much time each gender spends on a bike
+```{r }
+sum_dur_gen <- trips %>% 
+  group_by(gender) %>% 
+  summarize(mean_duration=as.numeric(round(mean(duration)))) 
+
+```
+
+```{r echo=FALSE}
+sum_dur_gen %>% 
+  kable() %>% 
+  kable_styling()
+```
+
+```{r echo=FALSE,warning=FALSE}
+ggplot(sum_dur_gen,aes(x=gender,y=mean_duration,fill=gender)) +
+  geom_col(width = 0.6) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) + 
+  labs(title = "Average duration on a bike",subtitle = "by gender (in minutes)",caption = "2019, Q1") +
+  geom_text(aes(label=paste0(mean_duration," minutes")),vjust=-0.5) +
+  labs(y="Mean Duration",x="Gender", size =2)
+
+```
+  
+This figure shows that although there are more male bikers than female, the female bikers spend more time on the bike than men do hence reinforcing the fact that the female riders could bring in more revenue.
+
+This brings us to our first reccomendation of this case study.
+
+### Reccomendation 1:
+Women riders spend more time on the bike even though they have a lot less rides than men. Cyclistic should focus on bringing more women to join our service.
+
+
+#### Time on a bike by age
+
+creating a variable age by subtracting the birthyear by 2019
+```{r}
+trips <- trips %>% 
+  mutate(age=2019-birthyear)
+
+```
+
+
+There are some observations in the age variable that have more than 90 years of age. The oldest age is 116. These are errors as no one of that age is physically capable of using a bike.Clearly, some people entered the wrong birthyear. We need to clean these observations.
+We will set the cutoff of 90 years. There are also some outliers that need to be removed.
+
+
+```{r}
+trips <- trips %>% 
+  filter(age<=90)
+
+dur_age <- trips %>% 
+  group_by(age) %>% 
+  summarize(mean_duration=round(mean(duration),1))
+
+#check the outlier
+filter(dur_age,age>75,mean_duration>200)
+
+```
+There are some outliers in the data that are skewing the results.  
+Let's find out what they are 
+```{r warning=FALSE}
+outlier <- filter(trips,duration>200,age>70)
+print(outlier) %>% 
+  kable() %>% 
+  kable_styling()
+```
+Removing the outliers as these values don't make any sense.
+```{r}
+trips <- trips %>% 
+  filter(trip_id!=21857497,trip_id!=21978794,trip_id!=21994392)
+
+```
+
+
+
+```{r}
+dur_age <- trips %>% 
+  group_by(age) %>% 
+  summarize(mean_duration=as.numeric(round(mean(duration),1)))
+
+#filter out the outlier 
+#dur_age <- filter(dur_age,age<75 & mean_duration<200)
+
+
+```
+
+```{r warning=FALSE}
+ggplot(dur_age,aes(x=age,y=mean_duration, colour="red")) +
+  geom_point() +
+  theme_minimal() +
+  geom_smooth(method="loess",
+              alpha=0.1,colour="deeppink4",fill="deeppink4",linewidth=0.5) +
+  theme(legend.position = "none") +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  labs(y="Mean Duration",x="Age",title = "Average duration on a bike",subtitle = "By Age",caption = "2019 Q1")
+
+```
+The general trend of age vs duration is that as age increases, the amount of time on bike decreases. Therefore we should focus more on young people to add to our subscribers. 
+
+However we see a significant increase in bike usage for people that are 75 years or older. This could be because of the health benefits or riding a bike.
+
+
+#### Checking the average duration on a bike by *Age* and *User type*
+```{r}
+cor_age_type <- trips %>% 
+  group_by(age,usertype) %>% 
+  summarize(mean_duration=as.numeric(round(mean(duration)))) 
+```
+
+Running the code again without the outliers,
+```{r warning=FALSE}
+cor_age_type <- trips %>% 
+  group_by(age,usertype) %>% 
+  summarize(mean_duration=as.numeric(round(mean(duration)))) 
+
+```
+
+```{r warning=FALSE}
+ggplot(cor_age_type,aes(x=age,y=mean_duration,colour=usertype)) +
+  geom_point() +
+  geom_smooth(method = "lm", se=FALSE,linewidth=0.5)+
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  labs(y="Mean Duration",x="Age",
+       title = "Average duration on a bike",
+       subtitle = "By Age and usertype",
+       caption = "2019 Q1") + 
+  annotate("rect",xmin=15,xmax = 20,ymin = 0,ymax = 175,alpha=0.1,fill="blue") +
+  annotate("rect",xmin=55,xmax = 70,ymin = 0,ymax = 175,alpha=0.1,fill="blue")
+
+```
+  
+  From this graph, we can see that the general trend of age vs duration is slightly decreasing for both customers and subscribers.  
+
+The mean duration of Subscribers is throughout less than that of customers. There are some interesting points to mention. 
+
+- The mean duration of riders aged *16-20* have an unusually high durations on a bike as shaded in the graph.  
+
+- The mean duration of riders aged *55-70* also have an unusually high duration on a bike as shaded in the graph.  
+
+This shows that very young people and very old people are alot more active on the bike and hence our business strategy should focus on increasing Subscribers in these categories.
+
+This brings us to our 2nd reccomendation of this case study.
+
+### Reccomentation 2:
+  People aged 16-20 and 55-70 spend more time than other age groups. Marketing strategies should be devised to attract customers of these age groups.
+
+
+
+#now lets check the duration by usertype
+```{r echo=FALSE}
+#add usertype to dur_df
+dur_df <- trips[c("gender","duration","age","usertype")]
+
+sum_df2 <- dur_df %>% 
+  as.data.frame() %>% 
+  group_by(usertype) %>% 
+  summarize(mean_duration=round(mean(duration)))
+
+#lets draw a plot for it
+#just use normal geom_col
+
+custom_colors_user <- c("Customer" = "deeppink1", "Subscriber" = "deepskyblue")
+
+
+ggplot(sum_df2,aes(x=usertype,y=mean_duration)) +
+  geom_col(width = 0.5, fill=custom_colors_user) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  labs(x="User type",y="Mean Duration",
+       title = "Average duration on a bike",
+       subtitle = "By Usertype",
+       caption = "2019 Q1") +
+  geom_text(aes(label=paste0(mean_duration," minutes"),vjust=-0.5))
+
+```
+  
+The overall duration shows that customers on average spend more time on the bike than subscribers. This means that subscribers mainly use their bikes for short routes while customers use the bikes for longer routes. This makes sense. Assuming that for a customer, a ticket costs the same no matter the amount of distance traveled from station to station. While the subscriber can be charged less for shorter routes and more for longer routes.  
+
+It could also be the case that the people who use longer routes are tourists and because the bike service is not available in their area, they don't see a value in buying the subscription.
+
+### Reccomendation 3:
+Make an incentive program in the subscription to attract people who use the bikes for longer routes.
+```{r echo=FALSE}
+#check average amount of bikes used per day
+trips <- trips %>% 
+  mutate(start_date=as_date(start_time))
+
+dur_df <- trips[c("gender","duration","age","usertype","start_date")]
+
+#First lets combine the customer and gender graphs into 1
+sum_df3 <- dur_df %>% 
+  as.data.frame() %>% 
+  group_by(usertype,gender) %>% 
+  summarize(mean_duration=round(mean(duration))) %>% 
+  na.omit()
+
+#let's use a simple bar chart again
+ggplot(sum_df3,aes(x=gender,y=mean_duration,fill=usertype)) +
+  geom_col(width = 0.6) + 
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  labs(x="Average Duration",y="Gender",
+       title="Average duration on a bike",
+       subtitle = "by Gender and Usertype",
+       caption = "2019 Q1") +
+  geom_text(aes(label=paste0(mean_duration," minutes"),vjust=4.5)) +
+  annotate("text",x=1,y=55,label="53 minutes") +
+  annotate("text",x=2,y=52,label="50 minutes") 
+
+```
+
+
+# Part 2
+
+#### Importing data from the last 3 quarters of 2019 and first quarter of 2020
+```{r echo=T, results='hide',message=FALSE}
+#setting the working directory
+getwd()
+setwd("/Users/apple/Documents/R")
+#reading the csv file in the working directory
+read_csv("Divvy_Trips_2019_Q1.csv")
+#storing the csv file into a data frame
+trips1 <- read_csv("Divvy_Trips_2019_Q2.csv")
+trips2 <- read_csv("Divvy_Trips_2019_Q3.csv")
+trips3 <- read_csv("Divvy_Trips_2019_Q4.csv")
+trips4 <- read_csv("Divvy_Trips_2020_Q1.csv")
+
+```
+
+#### Cleaning the data 
+
+##### Correcting the variable names in trips1
+```{r}
+colnames(trips1) <- colnames(trips2)
+```
+
+
+##### Removing the redundant variables
+The following variables are not available in all the data frames.  
+
+- start_lat
+- start_lng
+- end_lat
+- end_lng
+- gender
+- birthyear  
+
+We need to drop these variables to ensure consistency across all data frames
+
+
+```{r}
+trips4 <- select(trips4,-c("start_lat","start_lng","end_lat","end_lng"))
+
+trips1 <- select(trips1,-c("gender","birthyear"))
+trips2 <- select(trips2,-c("gender","birthyear"))
+trips3 <- select(trips3,-c("gender","birthyear"))
+
+```
+
+
+##### Correcting the column names and arrangement in trips4 to ensure consistency across data frames
+```{r}
+#calculate the tripduration for trips4 and make a column for it
+trips4 <- trips4 %>% 
+  mutate(tripduration=(ended_at-started_at)/60)
+
+#correct the order of variables in trips4
+trips4 <- trips4 %>% 
+  select(c("ride_id","started_at","ended_at",
+           "rideable_type","tripduration","start_station_id",
+           "start_station_name","end_station_id","end_station_name",
+           "member_casual"))
+
+#correct the variable names in trips4
+colnames(trips4) <- colnames(trips1) 
+```
+
+
+#### Appending all 4 data frames into a single data frame
+```{r}
+all_trips <- rbind(trips1,trips2,trips3,trips4)
+```
+
+##### Changing the usertype observations from user/casual to customer/subscriber.  
+In trips1-trips3 the usertype is customer/subscriber. While in trips4, the usertype is user/casual. 
+
+We need to convert usertypes into the same category
+```{r}
+all_trips <- all_trips %>% 
+  mutate(usertype = case_when(
+    usertype == "member" ~ "Subscriber",
+    usertype == "casual" ~ "Customer",
+    TRUE ~ usertype
+  ))
+
+```
+
+
+#### Previewing the data
+```{r}
+skim_without_charts(all_trips)
+
+colnames(all_trips)
+
+```
+
+Make new varibles for date, month, year and weekday
+
+```{r}
+all_trips <- all_trips %>% 
+  mutate(week_day=wday(start_time,label=TRUE))
+
+
+all_trips <- all_trips %>% 
+  mutate(year=year(start_time))
+
+all_trips <- all_trips %>% 
+  mutate(month=month(start_time,label=TRUE))
+
+all_trips <-  all_trips %>% 
+  mutate(date=date(start_time))
+
+```
+
+Making a variable for tripduration in minutes
+
+            
+```{r}
+all_trips <- all_trips %>% 
+  mutate(duration_minutes=round(tripduration/60,1))
+
+summary(all_trips$duration_minutes)
+summarize(all_trips,min(tripduration))
+```
+
+
+There is an observation in tripduration with a negative value. 
+Since time cannot be a negative, we need to clean this value
+```{r}
+all_trips <- all_trips %>% 
+  filter(tripduration>0) %>% 
+  filter(duration_minutes>0)
+
+summarize(all_trips,min(tripduration)) %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+Calculating summary statistics for duration
+```{r}
+
+mean_duration <- mean(all_trips$duration_minutes)
+median_duration <- median(all_trips$duration_minutes)
+sd_duration <- sd(all_trips$duration_minutes)
+
+
+summary_stats <- data.frame(statistic=c("Mean","Median","Standard Deviation"),
+                            Value=c(mean_duration,median_duration,sd_duration))
+summary_stats %>% 
+  kable() %>% 
+  kable_styling()
+
+```
+
+```{r}
+num_usertype <- all_trips %>% 
+  group_by(usertype) %>% 
+  summarize(count=n())
+
+pie_chart <- ggplot(all_trips, aes(x="",fill=usertype)) +
+  geom_bar(width=1) +
+  coord_polar(theta="y", clip = "off", start=0.19) +
+  theme_void() +
+  labs(title="Breakdown of bike trips",
+       subtitle="by usertype", caption = "2019 Q2-Q4,2020 Q1") +
+  annotate("text",x=-0.5,y=0,label=paste0("Total bike rides: ",length(trips$usertype)),fontface="bold",size=3.6) +
+  theme(plot.title = element_text(size = rel(1.5))) 
+
+ggdraw(pie_chart) +
+  draw_label("901,632 Customers", x = 0.35, y = 0.51, hjust = 0, vjust = 0,
+             fontfamily = "", fontface = "bold", color = "black", size = 10,
+             colour = "coral2") +
+  draw_label("2,948,431 Subscribers",x=0.34,y=0.4,hjust = 0,vjust = 0,
+             fontfamily = "", fontface = "bold", color = "black", size = 9,
+             colour = "darkturquoise")
+
+```
+Compared to part 1, this data has a significanly more bike trips.
+
+
+
+```{r}
+# finding the mean duration for customers and subscribers 
+mean_dur_all <- all_trips %>% 
+  group_by(usertype) %>% 
+  summarize(mean_duration=mean(duration_minutes))
+
+ggplot(mean_dur_all,aes(x=usertype,y=mean_duration)) +
+  geom_col(width = 0.6,fill="coral2") +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  labs(x="User type",y="Mean Duration (minutes)",title="Mean Duration by usertype",
+       caption="2019 Q2-Q4,2020 Q1") +
+  geom_text(aes(label=paste0(round(mean_duration)," minutes")),vjust=-0.5)
+
+```
+We see that the user type and duration data is in line with the data presented in part 1. Customers use the bikes for longer routes while subscribers use the bikes for shorter routes.
+
+
+
+
+
+### Temporal trends
+```{r}
+sum_all1 <- all_trips %>% 
+  group_by(date) %>% 
+  summarize(trip_count=n())
+
+```
+
+```{r fig_width=10,fig.height=4 }
+ggplot(sum_all1,aes(x=date,y=trip_count)) +
+  geom_smooth(method="gam",formula = y~s(x), colour="slateblue1",fill="plum2") +
+  geom_line(alpha=0.6) +
+  theme_minimal() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
+  annotate("text",x=as_date("2019-12-15"),y=22500,
+           label="July 2019 and August 2019 were the busiest months",size=3) +
+  labs(x="Date",y="Number of Trips",caption ="2019 Q2-Q4,2020 Q1" ) + 
+  theme(axis.text.x = element_text(size = 7))
+
+
+```
+The temporal trend shows that bike usage increases in summer. 
+
+#Day of week analysis. 
+
+Find which days have the most bike use.
+
+```{r}
+sum_dow <- all_trips %>% 
+  group_by(week_day) %>% 
+  summarize(trip_count=n())
+
+```
+
+```{r}
+
+ggplot(sum_dow,aes(x=week_day,y=trip_count)) +
+  geom_col(width=0.7,fill="royalblue",alpha=0.7) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  geom_text(aes(label=comma(trip_count)),vjust=-0.5) +
+  theme(legend.position = "none") +
+  labs(x="Day of week",y="Number of Trips") +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Number of trips by Day of week")
+
+```
+  
+
+The weekday analysis shows that people are using bikes more on the weekdays than on weekends. 
+This indicates that a significant amount of  people use bikes to commute to work.
+
+Monthwise analysis of trips
+
+
+```{r}
+sum_month <- all_trips %>% 
+  group_by(month,year) %>% 
+  summarize(trip_count=n())
+```
+
+
+
+```{r }
+#the month and year should be in the same variable because of the nature of the data
+all_trips <- all_trips %>% 
+  mutate(month_year=paste(month(start_time,label=TRUE),year(start_time)))
+
+all_trips <- all_trips %>% 
+  mutate(month_year = as.Date(paste("01", month_year), format = "%d %b %Y"))
+
+#only display the month and year 
+all_trips$month_year <- strftime(all_trips$start_time, format = "%b %Y")
+
+
+sum_month <- all_trips %>% 
+  group_by(month_year) %>% 
+  summarize(trip_count=n())
+
+custom_order <- c("Apr 2019","May 2019","Jun 2019","Jul 2019",
+                  "Aug 2019","Sep 2019","Oct 2019","Nov 2019",
+                  "Dec 2019","Jan 2020","Feb 2020","Mar 2020")
+
+sum_month$month_year <- factor(sum_month$month_year,levels = custom_order)
+
+levels(sum_month$month_year)
+```
+
+``` {r fig.width=15,fig.height=8}
+ggplot(sum_month,aes(x=month_year,y=trip_count)) +
+  geom_col(fill="royalblue",alhpa=0.5,width = 0.8) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_y_continuous(labels = comma) +
+  geom_text(aes(label=comma(trip_count)),vjust=-0.8,size=4) +
+  labs(title = "Number of trips by Month")
+
+```
+This graph reinforces the fact that bike usage is at its peak during the summer months.
+
+
+
+```{r}
+sum_day_month <- all_trips %>% 
+  group_by(month_year,week_day) %>% 
+  summarize(trip_count=n())
+
+#correcting the ordering of the months
+sum_day_month$month_year <- factor(sum_day_month$month_year,levels = custom_order)
+
+ sum_totals_month <- all_trips %>% 
+  group_by(month_year) %>% 
+  summarize(trips_total=n()) %>% 
+  na.omit()
+ 
+sum_totals_month$month_year <- factor(sum_totals_month$month_year,levels=custom_order)
+
+```
+
+```{r}
+ggplot(data=sum_day_month)  +
+  geom_col(mapping=aes(x=month_year,y=trip_count,fill=week_day)) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_y_continuous(labels = comma) + 
+  labs(title="Trip count by Month and day of week",
+       x="Month",y="Trip Count") + 
+  geom_text(data = sum_totals_month,aes(x=month_year,y=trips_total,label=comma(trips_total),vjust=-0.5),size=2.5) +
+  theme(axis.text.x = element_text(size=6))
+
+```
+
+
+### Hourly analysis
+
+```{r}
+all_trips <- all_trips %>% 
+  mutate(hour=hour(start_time))
+
+summ_hour <- all_trips %>% 
+group_by(hour) %>% 
+  summarize(trip_count=n())
+
+```
+
+```{r fig=10}
+ggplot(summ_hour,aes(x=hour,y=trip_count)) + 
+  geom_col(fill="royalblue",width=0.8,alpha=0.7) +
+  scale_x_continuous(breaks = seq(0,23, by=1)) +
+  theme_minimal() +
+  scale_y_continuous(labels = comma) +
+  geom_smooth(method = "gam",formula = y~s(x), alpha=0.2,colour="tomato1",se=FALSE) +
+  theme(panel.grid = element_blank()) +
+  labs(title = "Trip count by Hour",y="Number of trips",x="Hours",
+       caption = "2019 Q2-Q4,2020 Q1") +
+  geom_text(aes(label=comma(trip_count)),size=2,vjust=-1) 
+
+```
+The hourly analysis shows that bike usage is at peak from 7:00 am to 9:00 am and from 4:00 pm to 6:00 pm. This further reinforces the idea that people use the bikes to commute to work.
+
+### Reccomendation 4:
+Make packages for people who commute to work 
+
+### Seasonality 
+
+```{r}
+#Make a season variable
+all_trips <- all_trips %>% 
+  mutate(season=case_when (
+    month %in% c("Dec","Jan","Feb") ~"Winter",
+    month %in% c("Mar","Apr","May") ~ "Spring",
+    month %in% c("Jun","Jul","Aug") ~ "Summer",       
+    month %in% c("Sep","Oct","Nov") ~ "Fall"       
+          ))
+
+sum_seasons <- all_trips %>% 
+  group_by(season) %>% 
+  summarize(trip_count=n())
+
+```
+
+```{r fig.height=6}
+ggplot(sum_seasons,aes(x=season,y=trip_count)) + 
+  geom_col(width=0.8,fill="royalblue",alpha=0.7) + 
+  theme_minimal() + 
+  theme(panel.grid = element_blank()) + 
+  scale_y_continuous(labels = comma) +
+  geom_text(aes(label=comma(trip_count)),vjust=-0.8) +
+  labs(title = "Number of rides by Season",x="Seasons",y="Number of Trips",
+       caption = "2019 Q2-Q4,2020 Q1")
+```
+
+Summer is the most popular season when it comes to riding bikes
+
+Combining Seasons and month
+```{r}
+sum_seasons_months <- all_trips %>% 
+  group_by(season,month) %>% 
+  summarize(trip_count=n())
+
+```
+
+```{r fig.height=8}
+ggplot(data=sum_seasons_months) +
+  geom_col(mapping=aes(x=season,y=trip_count,fill=month)) +
+  geom_text(data=sum_seasons,mapping=aes(x=season,y=trip_count,label=comma(trip_count)),vjust=-0.8) +
+  theme_minimal() +
+  theme(panel.grid = element_blank()) +
+  scale_y_continuous(labels = comma) +
+  labs(title = "Number of rides by Season",x="Seasons",y="Number of Trips",
+       caption = "2019 Q2-Q4,2020 Q1") 
+```
+
+## **Reccomendations**
+
+Based on the analysis of this case study, the following reccomendations are made.
+
+1. Women riders spend more time on the bike even though they have a lot less rides than men. Cyclistic should focus on bringing more women to join our service.
+
+2. People aged 16-20 and 55-70 spend more time than other age groups. Marketing strategies should be devised to attract customers of these age groups.
+
+3. Make an incentive program in the subscription to attract people who use the bikes for longer routes.
+
+4. Make packages for people who commute to work 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
